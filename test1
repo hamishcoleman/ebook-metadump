@@ -1,0 +1,42 @@
+#!/usr/bin/env python2
+#
+
+import sys
+import os
+import yaml
+
+path = os.environ.get('CALIBRE_PYTHON_PATH', '/usr/lib/calibre')
+if path not in sys.path:
+    sys.path.insert(0, path)
+
+sys.resources_location = os.environ.get('CALIBRE_RESOURCES_PATH', '/usr/share/calibre')
+sys.extensions_location = os.environ.get('CALIBRE_EXTENSIONS_PATH', '/usr/lib/calibre/calibre/plugins')
+#sys.executables_location = os.environ.get('CALIBRE_EXECUTABLES_PATH', '/usr/bin')
+
+from calibre.ebooks.metadata.meta import get_metadata 
+def main():
+    filename = sys.argv[1]
+
+    stream_type = os.path.splitext(filename)[1].replace('.', '').lower()
+
+    with open(filename, 'rb') as fd:
+        mi = get_metadata(fd, stream_type, force_read_metadata=True)
+
+    fields = mi.all_field_keys()
+    db = dict()
+
+    for field in fields:
+        db[field] = mi.get(field)
+
+    # remove some less useful, "large" items
+    del db['cover_data']
+    del db['guide']
+    del db['manifest']
+    del db['spine']
+
+    print(yaml.dump(db))
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

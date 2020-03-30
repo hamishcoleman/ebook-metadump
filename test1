@@ -4,6 +4,7 @@
 import sys
 import os
 import yaml
+import argparse
 
 path = os.environ.get('CALIBRE_PYTHON_PATH', '/usr/lib/calibre')
 if path not in sys.path:
@@ -13,9 +14,19 @@ sys.resources_location = os.environ.get('CALIBRE_RESOURCES_PATH', '/usr/share/ca
 sys.extensions_location = os.environ.get('CALIBRE_EXTENSIONS_PATH', '/usr/lib/calibre/calibre/plugins')
 #sys.executables_location = os.environ.get('CALIBRE_EXECUTABLES_PATH', '/usr/bin')
 
-from calibre.ebooks.metadata.meta import get_metadata 
+from calibre.ebooks.metadata.meta import get_metadata
+
+def argparser():
+    parser = argparse.ArgumentParser(
+            description='Gather data from ebook')
+    parser.add_argument('-v', '--verbose', action='count', default=0)
+    parser.add_argument('files', nargs='+')
+    return parser.parse_args()
+
 def main():
-    filename = sys.argv[1]
+    args = argparser()
+
+    filename = args.files[0]
 
     stream_type = os.path.splitext(filename)[1].replace('.', '').lower()
 

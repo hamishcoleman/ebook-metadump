@@ -25,15 +25,10 @@ def argparser():
     return parser.parse_args()
 
 
-def main():
-    args = argparser()
+def do_one_file(fh, verbose):
+    stream_type = os.path.splitext(fh.name)[1].replace('.', '').lower()
 
-    filename = args.filename[0]
-
-    stream_type = os.path.splitext(filename)[1].replace('.', '').lower()
-
-    with open(filename, 'rb') as fd:
-        mi = get_metadata(fd, stream_type, force_read_metadata=True)
+    mi = get_metadata(fh, stream_type, force_read_metadata=True)
 
     fields = mi.all_field_keys()
     db = dict()
@@ -41,7 +36,7 @@ def main():
     for field in fields:
         db[field] = mi.get(field)
 
-    if args.verbose:
+    if verbose:
         # remove some items that are far too verbose..
         del db['cover_data']
         del db['guide']
@@ -49,7 +44,18 @@ def main():
         del db['spine']
         del db['comments']
 
-        print(yaml.dump(db))
+        output = dict()
+        output[str(fh.name)] = db
+
+        print(yaml.dump(output))
+
+
+def main():
+    args = argparser()
+
+    for filename in args.filename:
+        fh = open(filename, 'rb')
+        do_one_file(fh, args.verbose)
 
     return 0
 

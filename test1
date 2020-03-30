@@ -21,18 +21,22 @@ def argparser():
     parser = argparse.ArgumentParser(
             description='Gather data from ebook')
     parser.add_argument('-v', '--verbose', action='count', default=0)
+    parser.add_argument(
+            '-f', '--fields', action='append', help='field(s) to extract')
     parser.add_argument('filename', nargs='+', help='Book filename(s)')
     return parser.parse_args()
 
 
-def do_one_file(filename, verbose):
+def do_one_file(filename, args):
     fh = open(filename, 'rb')
     stream_type = os.path.splitext(filename)[1].replace('.', '').lower()
 
     mi = get_metadata(fh, stream_type, force_read_metadata=True)
 
+    for field in args.fields:
+        print(mi.get(field))
 
-    if verbose:
+    if args.verbose:
         fields = mi.all_field_keys()
         db = dict()
 
@@ -52,11 +56,11 @@ def do_one_file(filename, verbose):
         print(yaml.dump(output))
 
 
-def do_walk(path, verbose):
+def do_walk(path, args):
     for dirpath, dirs, files in os.walk(path):
         for filename in files:
             if not os.path.isdir(filename):
-                do_one_file(os.path.join(dirpath, filename), verbose)
+                do_one_file(os.path.join(dirpath, filename), args)
 
 
 def main():
@@ -64,10 +68,9 @@ def main():
 
     for filename in args.filename:
         if os.path.isdir(filename):
-            do_walk(filename, args.verbose)
+            do_walk(filename, args)
         else:
-            do_one_file(filename, args.verbose)
-
+            do_one_file(filename, args)
 
     return 0
 

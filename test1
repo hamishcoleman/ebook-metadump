@@ -44,6 +44,53 @@ class dictwrap(object):
         self.dict[key] = value
 
 
+def sanitise(mi):
+    """Try to extract sane data from the chaos"""
+
+    # default to assuming bad data
+    mi['_result'] = '_unset'
+
+    languages = mi['languages']
+    if 'en' in languages:
+        mi['lang'] = 'eng'
+    elif 'eng' in languages:
+        mi['lang'] = 'eng'
+    elif len(languages) == 1:
+        mi['lang'] = languages[0].strip()
+    elif len(languages):
+        mi['lang'] = '_not_eng'
+        mi['_result'] = '_bad'
+    else:
+        mi['lang'] = '_unknown'
+        mi['_result'] = '_bad'
+
+    authors = mi['authors']
+    if len(authors) == 1:
+        mi['author'] = authors[0].strip()
+    elif len(authors) == 0:
+        mi['author'] = '_unknown'
+        mi['_result'] = '_bad'
+    else:
+        mi['author'] = '_too_many'
+        mi['_result'] = '_bad'
+
+    count_commas = mi['author'].count(',')
+    if count_commas == 1:
+        # Assume it is "lastname, firstname"
+        names = mi['author'].split(',')
+        names.reverse()
+        mi['author'] = ' '.join(names).strip()
+    elif count_commas > 1:
+        mi['author'] = '_too_many_commas'
+        mi['_result'] = '_bad'
+
+    # replace multiple whitespaces with just one underscore
+    mi['author'] = '_'.join(mi['author'].split())
+    mi['author'] = mi['author'].replace('"','')
+
+    mi['_title'] = mi['title'].strip().replace(' ','_').replace("'",'')
+
+
 def do_one_file(filename, args):
     fh = open(filename, 'rb')
     stream_type = os.path.splitext(filename)[1].replace('.', '').lower()
@@ -52,6 +99,8 @@ def do_one_file(filename, args):
 
     mid = dictwrap(mi)
     mid['_filename'] = filename
+
+    sanitise(mid)
 
     if args.fields is not None:
         for field in args.fields:

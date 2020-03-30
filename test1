@@ -25,18 +25,20 @@ def argparser():
     return parser.parse_args()
 
 
-def do_one_file(fh, verbose):
-    stream_type = os.path.splitext(fh.name)[1].replace('.', '').lower()
+def do_one_file(filename, verbose):
+    fh = open(filename, 'rb')
+    stream_type = os.path.splitext(filename)[1].replace('.', '').lower()
 
     mi = get_metadata(fh, stream_type, force_read_metadata=True)
 
-    fields = mi.all_field_keys()
-    db = dict()
-
-    for field in fields:
-        db[field] = mi.get(field)
 
     if verbose:
+        fields = mi.all_field_keys()
+        db = dict()
+
+        for field in fields:
+            db[field] = mi.get(field)
+
         # remove some items that are far too verbose..
         del db['cover_data']
         del db['guide']
@@ -45,17 +47,27 @@ def do_one_file(fh, verbose):
         del db['comments']
 
         output = dict()
-        output[str(fh.name)] = db
+        output[str(filename)] = db
 
         print(yaml.dump(output))
+
+
+def do_walk(path, verbose):
+    for dirpath, dirs, files in os.walk(path):
+        for filename in files:
+            if not os.path.isdir(filename):
+                do_one_file(os.path.join(dirpath, filename), verbose)
 
 
 def main():
     args = argparser()
 
     for filename in args.filename:
-        fh = open(filename, 'rb')
-        do_one_file(fh, args.verbose)
+        if os.path.isdir(filename):
+            do_walk(filename, args.verbose)
+        else:
+            do_one_file(filename, args.verbose)
+
 
     return 0
 

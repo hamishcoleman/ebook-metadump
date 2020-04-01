@@ -26,6 +26,8 @@ def argparser():
             '-f', '--fields', action='append', help='field(s) to extract')
     parser.add_argument(
             '-t', '--template', action='store', help='output template')
+    parser.add_argument(
+            '--move', action='store_true', help='move files to standard names')
     parser.add_argument('filename', nargs='+', help='Book filename(s)')
     return parser.parse_args()
 
@@ -44,31 +46,43 @@ class dictwrap(object):
         self.dict[key] = value
 
 
-def sanitise(mi):
+def clean_string(s):
+    """Remove bad chars from the string - making it good for a filename"""
+    badchars = ['"', "'", '#', '&', ':', ';', '$']
+    for bad in badchars:
+        s = s.replace(bad, '')
+
+    # remove runs of multiple whitespaces and replace
+    s = '_'.join(s.split())
+    return s.strip()
+
+
+def sanitise_fields(mi):
     """Try to extract sane data from the chaos"""
 
-    # default to assuming bad data
-    mi['_result'] = '_unset'
-
+    mi['_lang_ok'] = False
     languages = mi['languages']
     if 'en' in languages:
         mi['lang'] = 'eng'
+        mi['_lang_ok'] = True
     elif 'eng' in languages:
         mi['lang'] = 'eng'
+        mi['_lang_ok'] = True
     elif len(languages) == 1:
-        mi['lang'] = languages[0].strip()
+        mi['lang'] = clean_string(languages[0])
+        mi['_lang_ok'] = True
     elif len(languages):
         mi['lang'] = '_not_eng'
-        mi['_result'] = '_bad'
     else:
-        mi['lang'] = '_unknown'
-        mi['_result'] = '_bad'
+        mi['lang'] = '_unklang'
 
+    mi['_author_ok'] = False
     authors = mi['authors']
     if len(authors) == 1:
-        mi['author'] = authors[0].strip()
+        mi['author'] = authors[0]
+        mi['_author_ok'] = True
     elif len(authors) == 0:
-        mi['author'] = '_unknown'
+        mi['author'] = '_unkauth'
         mi['_result'] = '_bad'
     else:
         mi['author'] = '_too_many'
@@ -85,10 +99,9 @@ def sanitise(mi):
         mi['_result'] = '_bad'
 
     # replace multiple whitespaces with just one underscore
-    mi['author'] = '_'.join(mi['author'].split())
-    mi['author'] = mi['author'].replace('"','')
+    mi['author'] = clean_string(mi['author'])
 
-    mi['_title'] = mi['title'].strip().replace(' ','_').replace("'",'')
+    mi['_title'] = clean_string(mi['title'])
 
 
 def do_one_file(filename, args):
@@ -100,7 +113,7 @@ def do_one_file(filename, args):
     mid = dictwrap(mi)
     mid['_filename'] = filename
 
-    sanitise(mid)
+    sanitise_fields(mid)
 
     if args.fields is not None:
         for field in args.fields:
@@ -127,6 +140,29 @@ def do_one_file(filename, args):
         output[str(filename)] = db
 
         print(yaml.dump(output))
+
+    if args.move and mid['_lang_ok'] and mid['_author_ok']:
+        # TODO: make path configurable
+        path = "{}/{}/{}/".format(
+                mid['author'],
+                mid['_title'],
+                mid['lang']
+        )
+        try:
+            os.makedirs(path)
+        except os.error:
+            # wtf? makedirs cannot cope with the path already existing
+            # what is so hard about "equivalent to mkdir -p" ?
+            pass
+
+        basename = os.path.basename(filename)
+        dest = os.path.join(path, basename)
+
+        if os.path.exists(dest):
+            print("Skipping {}".format(dest))
+
+        print("Would rename to {}".format(dest))
+        #os.path.rename(filename, dest)
 
 
 def do_walk(path, args):
